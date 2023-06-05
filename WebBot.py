@@ -6,10 +6,8 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import time
-import itertools
-import pickle
-import sys
+
+import time, sys, itertools, pickle, getpass
 import pandas as pd
 
 # login to myasu using name and passowrd
@@ -53,34 +51,25 @@ def get_to_cart(browser, wait):
     wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="classes-link-4"]')))
     browser.get('https://webapp4.asu.edu/myasu/?action=addclass&strm')
     
-def loop_enrollment(counter, period_in_sec):
-    while True:             
-        confirm_enrollment(wait)
-        class_stat = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="win1divDERIVED_REGFRM1_SS_MESSAGE_LONG$0"]/div')))
-        time.sleep(period_in_sec)
-        
-        if 'is full' in class_stat.text and counter < repeat_times:
-            shop_cart = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="win2divSCC_LO_FL_WRK_SCC_GROUP_BOX_1$0"]')))
-            shop_cart.click()
-            counter += 1
-        else:
-            break
+
         
 
         
 # Enter and check the correct command line args
 if len(sys.argv) <= 1:
-    print('\nUsage: ./WebBot.py [Search for classes: y/N] [Username] [Password]')
+    print('\nUsage: ./WebBot.py [Search for classes: y/N]')
     print('\nExiting program...')
     sys.exit(1)
 else:
     print('\n\tWelcome To The RegBOT\n\tInitializing Web Browser...')
     period_in_min = input('Enter time period to wait between trials (in minutes): ')
-    # while not  period_in_min.isnumeric():
-    #     period_in_min = input('Your input is not a number, Please enter your number again: ')   
     period_in_min = input_type(period_in_min) 
     period_in_sec = period_in_min * 60
-
+    
+    repeat_times = input("Enter the number of Trials: ") 
+    repeat_times = input_type(repeat_times)
+    repeat_times = round(repeat_times)
+    
 # check if need to search for classes or not
 arg1 = sys.argv[1].upper()
 if arg1 == 'Y':
@@ -99,18 +88,19 @@ elif arg1 == 'N':
     print('\t3. Enroll in all classes.')
 
     classes_search_source = input()
-    while int(classes_search_source) > 3 or int(classes_search_source) < 1:
+    classes_search_source = input_type(classes_search_source)
+    while classes_search_source > 3 or classes_search_source < 1:
         print('[-]Invalid input, please Enter a number between 1-3')
         classes_search_source = input()
         
     # Using the CSV file to confirm enrollment in classes
-    if int(classes_search_source) == 1:
+    if classes_search_source == 1:
         df = pd.read_csv('classes.csv')
         df_class_num = df.iloc[0:,1].values.tolist()
         df_section_num = df.iloc[0:,2].values.tolist()
         
     # Using user input to confirm enrollment in classes
-    elif int(classes_search_source) == 2:
+    elif classes_search_source == 2:
         raise NotImplementedError('This functionality is not implemented yet!')
     
     # Enroll in all classes that are present in student cart
@@ -122,14 +112,14 @@ else:
     print('Input should be "Y/y" or "N/n" with no quotation marks!\n\tProgram is Exiting')
     sys.exit(1)
 
+# prompting for user information
+user_name = input("Enter your ASURITE User ID: ")
+pw = getpass.getpass("Enter your Password: ")
+
+
 browser  = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 browser.get('https://webapp4.asu.edu/myasu/')
 
-un = sys.argv[2]
-pw = sys.argv[3]
-
-user_name = un
-pw = pw
 login(user_name,pw, browser)
 
 wait = WebDriverWait(browser,60)
@@ -163,13 +153,6 @@ if class_search:
         browser.find_element(By.XPATH, '//*[@id="search-button"]').click()
         class_to_search = df_section_num[0]
         df_section_num.pop(0)
-        
-        # try:
-        #     not_found = browser.find_element(By.XPATH, '//*[@id="root"]/div[2]/div[3]/div/div/div[2]/div/h2')
-        #     print("No classes are found ")
-        #     continue
-        # except:
-        #     pass
 
         classes_list = browser.find_element(By.CSS_SELECTOR, "div:nth-child(5)")
         time.sleep(2)
@@ -233,25 +216,19 @@ if class_search:
         
         
         # time.sleep(period_in_sec)
-
-
-
+        
+        
 # Choice if not adding classes 
 while not class_search:
-    if int(classes_search_source) == 1:
+    if classes_search_source == 1:
         # Accessing the class registration page
         wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="classes-link-4"]')))
         browser.get('https://webapp4.asu.edu/myasu/?action=addclass&strm')
         
-        # accessing the cart and confirming the term
-        shop_cart = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="win2divSCC_LO_FL_WRK_SCC_GROUP_BOX_1$0"]')))
-        shop_cart.click()
-        term_choice = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="GRID_TERM_SRC5$0_row_0"]/td')))
-        term_choice.click()
-        
+        cart_term_confirm(wait)
+    
         # get_to_cart(browser, wait) TODO::###
-         
-        repeat_times = 5  # Need to assign this by prompting/command line args
+        
         counter = 0
         while True:
             wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="win1divSSR_REGFORM_VW$grid$0"]/table/tbody')))
@@ -267,14 +244,9 @@ while not class_search:
                     checkbox.click()
                     
                     
-            enroll = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="DERIVED_SSR_FL_SSR_ENROLL_FL"]')))
-            enroll.click()
-            confirm_enrollment = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="#ICYes"]')))
-            confirm_enrollment.click()
+            confirm_enrollment(wait)
             class_stat = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="win1divDERIVED_REGFRM1_SS_MESSAGE_LONG$0"]/div')))
-
             time.sleep(period_in_sec)
-            
             if 'is full' in class_stat.text and counter < repeat_times:
                 shop_cart = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="win2divSCC_LO_FL_WRK_SCC_GROUP_BOX_1$0"]')))
                 shop_cart.click()
@@ -286,33 +258,17 @@ while not class_search:
     elif classes_search_source == 2:
         pass
     
-    
     elif classes_search_source == 3:
         # Accessing the class registration page
         wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="classes-link-4"]')))
         browser.get('https://webapp4.asu.edu/myasu/?action=addclass&strm')
-        
-        # accessing the cart and confirming the term
-        # shop_cart = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="win2divSCC_LO_FL_WRK_SCC_GROUP_BOX_1$0"]')))
-        # shop_cart.click()
-        # term_choice = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="GRID_TERM_SRC5$0_row_0"]/td')))
-        # term_choice.click()
-        
         cart_term_confirm(wait) 
 
-        repeat_times = 5  # Need to assign this by prompting/command line args
         counter = 0
-        
         while True:             
-            # enroll = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="DERIVED_SSR_FL_SSR_ENROLL_FL"]')))
-            # enroll.click()
-            # confirm_enrollment = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="#ICYes"]')))
-            # confirm_enrollment.click()
             confirm_enrollment(wait)
             class_stat = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="win1divDERIVED_REGFRM1_SS_MESSAGE_LONG$0"]/div')))
-
             time.sleep(period_in_sec)
-            
             if 'is full' in class_stat.text and counter < repeat_times:
                 shop_cart = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="win2divSCC_LO_FL_WRK_SCC_GROUP_BOX_1$0"]')))
                 shop_cart.click()
@@ -322,7 +278,3 @@ while not class_search:
     
     
 print('GoodBey')
-time.sleep(500)
-
-
-
